@@ -67,6 +67,102 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const manifest = JSON.parse(manifestEl.textContent);
     let template = JSON.parse(templateEl.textContent);
+    const campaigns = [
+      { id: 'RT-03', name: 'Closed Lead', type: 'Retention', chs: ['Email', 'Outbound'], vol: 6, prem: 1150, tr: .05, emails: [
+        'Closed Lead - Initial', 'Closed Lead - Follow Up 1', 'Closed Lead - Follow Up 2',
+        'Closed Lead - Follow Up 3', 'Closed Lead - Follow Up 4'
+      ] },
+      { id: 'XS-01', name: 'AD&D-to-Life Cross-Sell', type: 'Cross-Sell', chs: ['Email', 'Direct Mail'], vol: 8, prem: 1250, tr: .15, emails: [
+        'Cross-Sell - Initial', 'Cross-Sell - Initial Engaged',
+        'Cross-Sell - Initial Engaged Follow Up', 'Cross-Sell - Initial Engaged Follow Up',
+        'Cross-Sell - Initial Unengaged', 'Cross-Sell - Initial Unengaged Follow Up',
+        'Cross-Sell - Initial Unengaged Follow Up', 'Cross-Sell - Send 2',
+        'Cross-Sell - Send 2 Engaged', 'Cross-Sell - Send 2 Engaged Follow Up',
+        'Cross-Sell - Send 2 Unengaged', 'Cross-Sell - Send 2 Unengaged Follow Up',
+        'Cross-Sell - Send 3', 'Cross-Sell - Send 3 Engaged',
+        'Cross-Sell - Send 3 Engaged Follow Up', 'Cross-Sell - Send 3 Unengaged',
+        'Cross-Sell - Send 3 Unengaged Follow Up'
+      ] },
+      { id: 'RT-02', name: 'Lapse Prevention', type: 'Retention', chs: ['Email', 'Direct Mail', 'Outbound'], vol: 4, prem: 1210, tr: .12, emails: [
+        'Lapse - Initial', 'Lapse - Follow Up 1', 'Lapse - Follow Up 2', 'Lapse - Follow Up 3'
+      ] },
+      { id: 'RT-01', name: 'NIGO', type: 'Retention', chs: ['Email', 'Outbound'], vol: 9, prem: 1380, tr: .02, emails: [
+        'NIGO - Initial', 'NIGO - Follow Up 1', 'NIGO - Follow Up 2', 'NIGO - Follow Up 3',
+        'NIGO - Follow Up 4', 'NIGO - Follow Up 5', 'NIGO - Follow Up 6'
+      ] },
+      { id: 'RT-04', name: 'Non-Buy', type: 'Retention', chs: ['Email', 'Direct Mail'], vol: 6, prem: 1290, tr: .08, emails: [
+        'Non-Buy - Initial', 'Non-Buy - Follow Up 1', 'Non-Buy - Follow Up 2',
+        'Non-Buy - Follow Up 3', 'Non-Buy - Follow Up 4'
+      ] },
+      { id: 'XS-02', name: 'QNS', type: 'Cross-Sell', chs: ['Email', 'Outbound'], vol: 6, prem: 980, tr: .05, emails: [
+        'QNS - Initial', 'QNS - Follow Up 1', 'QNS - Follow Up 2', 'QNS - Follow Up 3', 'QNS - Follow Up 4'
+      ] },
+      { id: 'XS-03', name: 'Web Decline', type: 'Cross-Sell', chs: ['Email', 'Direct Mail'], vol: 5, prem: 1100, tr: .2, emails: [
+        'Web Decline - Initial', 'Web Decline - Initial',
+        'Web Decline - Follow Up 1', 'Web Decline - Follow Up 1',
+        'Web Decline - Follow Up 2', 'Web Decline - Follow Up 2',
+        'Web Decline - Follow Up 3', 'Web Decline - Follow Up 4'
+      ] },
+      { id: 'RT-05', name: 'WinBack', type: 'Retention', chs: ['Email', 'Outbound'], vol: 5, prem: 1150, tr: -.05, emails: [
+        'WinBack - Initial', 'WinBack - Initial Engaged',
+        'WinBack - Initial Engaged Follow Up', 'WinBack - Initial Unengaged',
+        'WinBack - Initial Unengaged Follow Up'
+      ] }
+    ].map(c => ({ ...c, em: c.emails.length }))
+      .sort((a, b) => a.type === b.type
+        ? a.id.localeCompare(b.id)
+        : a.type === 'Cross-Sell' ? -1 : 1);
+    const campaignSource = 'const C = ' + JSON.stringify(campaigns) + ';';
+    const campaignBlock = /const C = \[[\s\S]*?\n    \];/;
+    if (!campaignBlock.test(template)) throw new Error('[bundle] Campaign data block not found');
+    template = template.replace(campaignBlock, campaignSource);
+    [
+      ['Renewal Early Save', 'NIGO'],
+      ['NIGO (Not in Good Order)', 'NIGO'],
+      ['Auto → Home Bundle', 'AD&D-to-Life Cross-Sell'],
+      ['Life Add-On for Auto', 'QNS'],
+      ['Umbrella Upsell', 'Web Decline'],
+      ['Renters → Home', 'AD&D-to-Life Cross-Sell'],
+      ['Pet Coverage Intro', 'QNS'],
+      ['Motorcycle Seasonal', 'AD&D-to-Life Cross-Sell'],
+      ['Lapse Win-Back', 'Lapse Prevention'],
+      ['Win-Back', 'Lapse Prevention'],
+      ['Payment Failure Rescue', 'Closed Lead'],
+      ['Loyalty Milestone', 'Non-Buy'],
+      ['Rewrite Email 3 of NIGO', 'Rewrite NIGO - Follow Up 2'],
+      ['E2 click rate', 'NIGO - Follow Up 1 click rate'],
+      ['E3 click rate', 'NIGO - Follow Up 2 click rate'],
+      ['click E3', 'click NIGO - Follow Up 2'],
+      ['E2 clickers', 'NIGO - Follow Up 1 clickers'],
+      ['from E4 into E3', 'from NIGO - Follow Up 3 into NIGO - Follow Up 2'],
+      ['E5 still produces', 'Cross-Sell - Initial Unengaged Follow Up still produces'],
+      ['versus E4', 'versus Cross-Sell - Initial Unengaged'],
+      ['Clone E5', 'Clone Cross-Sell - Initial Unengaged Follow Up'],
+      ['E4 click rate', 'Cross-Sell - Initial Unengaged click rate'],
+      ['E5 click rate', 'Cross-Sell - Initial Unengaged Follow Up click rate'],
+      ['E5 non-responders', 'Cross-Sell - Initial Unengaged Follow Up non-responders'],
+      ["c: 'XS-05'", "c: 'XS-02'"],
+      ["c: 'XS-06'", "c: 'XS-01'"]
+    ].forEach(([oldName, newName]) => {
+      template = template.split(oldName).join(newName);
+    });
+    [
+      [
+        'const wts = [1, .9, .82, .75, .69, .64].slice(0, jc.em)',
+        'const wts = Array.from({ length: jc.em }, (_, i) => i < 6 ? [1, .9, .82, .75, .69, .64][i] : .64 * Math.pow(.9, i - 5))'
+      ],
+      [
+        "const names = ['Intro offer', 'Value reminder', 'Customer stories', 'Limited-time savings', 'Final reminder'];",
+        'const names = jc.emails;'
+      ],
+      [
+        "e: 'E' + (o.k + 1), nm: names[o.k]",
+        "e: names[o.k], nm: 'Email ' + (o.k + 1)"
+      ]
+    ].forEach(([before, after]) => {
+      if (!template.includes(before)) throw new Error('[bundle] Email journey source not found');
+      template = template.replace(before, after);
+    });
 
     // Nested page bundles (iframe targets). Each ships ONCE, in the ROOT
     // document's manifest; frame srcs carry an about:blank#<uuid> marker
