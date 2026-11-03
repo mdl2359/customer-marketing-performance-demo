@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Interaction Timeline – Individual Journey</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #fff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e7eb;
+    --life: #2563eb; --auto: #d97706; --nurture: #db2777; --service: #0d9488;
+    --dm: #7c3aed; --app: #16a34a; --click: #16a34a;
+    --label-w: 200px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 20px 28px 8px; }
+  h1 { margin: 0; font-size: 22px; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  main { padding: 8px 28px 32px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .kpi .v { font-size: 22px; font-weight: 600; }
+  .kpi .l { font-size: 12px; color: var(--muted); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 12px; font-size: 13px; }
+  .toolbar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .toolbar .grp { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  button.btn { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  button.btn:hover { background: #f3f4f6; }
+  :focus-visible { outline: 2px solid #111827; outline-offset: 2px; }
+
+  .tl { display: grid; grid-template-columns: var(--label-w) 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .labels { background: #fafafa; border-right: 1px solid var(--line); }
+  .labels .axis-sp { height: 56px; border-bottom: 1px solid var(--line); }
+  .labels .lane-l { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 600; }
+  .labels .lane-l small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .scroll { overflow-x: auto; position: relative; }
+  .canvas { position: relative; }
+  .axis { position: relative; height: 56px; border-bottom: 1px solid var(--line); background: #fafafa; }
+  .phase { position: absolute; top: 0; height: 22px; font-size: 11px; font-weight: 600; display: flex; align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; border-right: 2px solid #fff; }
+  .tick { position: absolute; top: 24px; bottom: 0; border-left: 1px solid #d1d5db; font-size: 11px; color: var(--muted); padding: 2px 0 0 4px; white-space: nowrap; }
+  .tick.yr { border-left-color: #6b7280; font-weight: 700; color: var(--ink); }
+  .lane { position: relative; border-bottom: 1px solid var(--line); }
+  .lane:nth-child(even) { background: #fcfcfd; }
+  .grid-line { position: absolute; top: 0; bottom: 0; border-left: 1px dashed #eef0f3; pointer-events: none; }
+  .milestone { position: absolute; top: 56px; bottom: 0; border-left: 2px solid var(--app); opacity: .45; pointer-events: none; }
+  .milestone.dm { border-left-color: var(--dm); }
+  .ms-flag { position: absolute; top: 2px; font-size: 10px; font-weight: 700; color: #fff; background: var(--app); padding: 1px 5px; border-radius: 3px; white-space: nowrap; transform: translateX(-50%); z-index: 3; }
+  .ms-flag.dm { background: var(--dm); }
+
+  .node { position: absolute; width: 28px; height: 28px; margin-left: -14px; border-radius: 50%; border: 2px solid currentColor; background: #fff;
+          display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 2; transition: transform .1s; }
+  .node:hover, .node.sel { transform: scale(1.25); z-index: 4; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .node.sel { outline: 2px solid #111827; outline-offset: 2px; }
+  .node svg { width: 15px; height: 15px; }
+  .node.send { opacity: .75; border-style: dashed; }
+  .node.big { width: 36px; height: 36px; margin-left: -18px; background: currentColor; }
+  .node.big svg { width: 20px; height: 20px; color: #fff; }
+  .badge { position: absolute; top: -7px; right: -9px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; font-size: 9px; font-weight: 700; color: #fff; background: #374151; display: flex; align-items: center; justify-content: center; }
+  .badge.clk { background: var(--click); top: auto; bottom: -7px; }
+
+  .tip { position: fixed; pointer-events: none; background: #111827; color: #fff; font-size: 12px; padding: 8px 10px; border-radius: 6px; max-width: 320px; z-index: 50; display: none; line-height: 1.4; }
+  .bottom { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .bottom { grid-template-columns: 1fr; } :root { --label-w: 130px; } }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .empty { color: var(--muted); font-size: 13px; }
+  ul.obs { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; }
+  .legend-icons { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); align-items: center; }
+  .legend-icons span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-icons svg { width: 14px; height: 14px; }
+  .note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Customer Interaction Timeline</h1>
+  <div class="sub">One person's marketing and servicing touchpoints, Feb 2024 – Jul 2026 · Click an icon to see its details</div>
+</header>
+
+<main>
+  <section class="kpis" id="kpis" aria-label="Journey summary"></section>
+
+  <section class="card" aria-label="Timeline">
+    <div class="toolbar">
+      <div class="grp" id="laneFilters" role="group" aria-label="Show lanes"></div>
+      <div class="grp" style="margin-left:auto">
+        <label for="zoom">Zoom</label>
+        <input type="range" id="zoom" min="0.5" max="8" step="0.1" value="1.6" aria-label="Timeline zoom">
+        <button class="btn" id="fitBtn" type="button">Fit</button>
+        <button class="btn" id="focusBtn" type="button">Focus on conversion (Sep–Dec 2025)</button>
+      </div>
+    </div>
+    <div class="legend-icons" id="legendIcons" style="margin-bottom:10px"></div>
+    <div class="tl">
+      <div class="labels" id="labels"></div>
+      <div class="scroll" id="scroll"><div class="canvas" id="canvas"></div></div>
+    </div>
+    <div class="note">Each icon groups all events for one campaign on one day. Dashed outline means sent but not opened that day. The dark badge counts opens and the green badge counts clicks. Phase bands are an analyst's reading of the journey, not fields in the source data.</div>
+  </section>
+
+  <section class="bottom">
+    <div class="card" aria-live="polite">
+      <h2>Touchpoint details</h2>
+      <div id="detail" class="empty">Select an icon on the timeline to see its events.</div>
+    </div>
+    <div class="card">
+      <h2>What the journey shows</h2>
+      <ul class="obs" id="obs"></ul>
+    </div>
+  </section>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+// Source: interaction-history extract for one individual (mdm_individual_id and interaction_guid omitted).
+// Transcribed from a screenshot. Columns: interaction_date | channel | interaction_description | product_type | product_name
+const RAW = `
+2/14/2024|Email|Send|Other|CUEmailLifeCombinedFollowUp20240108-TSCV1
+2/14/2024|Email|Open|Other|CUEmailLifeCombinedFollowUp20240108-TSCV1
+2/14/2024|Email|Open|Other|CUEmailLifeCombinedFollowUp20240108-TSCV1
+4/17/2024|Email|Send|Other|CUEmailSITInitial20240408-TC5V1
+4/17/2024|Email|Open|Other|CUEmailSITInitial20240408-TC5V1
+4/25/2024|Email|Send|Other|CUEmailAutoInitial20240401-V9
+5/8/2024|Email|Send|Other|CUEmailSITFollowUp20240408-TC1V1
+5/8/2024|Email|Open|Other|CUEmailSITFollowUp20240408-TC1V1
+5/10/2024|Email|Open|Other|CUEmailAutoFollowUp20240401-V9
+7/10/2024|Email|Send|Other|CUEmailLifeCombinedInitial20240708-TC5V3
+7/10/2024|Email|Open|Other|CUEmailLifeCombinedInitial20240708-TC5V3
+7/18/2024|Email|Send|Other|CUEmailAutoInitial20240701-TC2V10
+7/31/2024|Email|Send|Other|CUEmailLifeCombinedFollowUp20240708-V2
+8/8/2024|Email|Send|Other|CUEmailAutoFollowUp20240701-TC5V10
+8/8/2024|Email|Open|Other|CUEmailAutoFollowUp20240701-TC5V10
+8/8/2024|Email|Open|Other|CUEmailAutoFollowUp20240701-TC5V10
+8/28/2024|Email|Send|Term Life|CUEmailComboSITInitial20240819-V3
+8/28/2024|Email|Open|Term Life|CUEmailComboSITInitial20240819-V3
+8/28/2024|Email|Open|Term Life|CUEmailComboSITInitial20240819-V3
+9/18/2024|Email|Send|Term Life|CUEmailComboSITFollowUp20240819-V3
+9/18/2024|Email|Open|Term Life|CUEmailComboSITFollowUp20240819-V3
+9/18/2024|Email|Open|Term Life|CUEmailComboSITFollowUp20240819-V3
+10/9/2024|Email|Send|Other|CUEmailLifeCombinedInitial20240930-V4
+10/9/2024|Email|Open|Other|CUEmailLifeCombinedInitial20240930-V4
+10/9/2024|Email|Open|Other|CUEmailLifeCombinedInitial20240930-V4
+10/30/2024|Email|Send|Other|CUEmailCombinedFollowUp20240930-TS0V4
+10/30/2024|Email|Open|Other|CUEmailCombinedFollowUp20240930-TS0V4
+10/30/2024|Email|Open|Other|CUEmailCombinedFollowUp20240930-TS0V4
+10/30/2024|Email|Open|Other|CUEmailCombinedFollowUp20240930-TS0V4
+11/27/2024|Email|Send|Other|CUEmailCombinedInitial20241111-RolloutV4
+11/27/2024|Email|Open|Other|CUEmailCombinedInitial20241111-RolloutV4
+11/27/2024|Email|Open|Other|CUEmailCombinedInitial20241111-RolloutV4
+12/18/2024|Email|Send|Other|CUEmailCombinedFollowUp20241111-RolloutV4
+12/18/2024|Email|Open|Other|CUEmailCombinedFollowUp20241111-RolloutV4
+12/24/2024|Email|Open|Other|CUEmailCombinedFollowUp20241111-RolloutV4
+12/24/2024|Email|Open|Other|CUEmailCombinedFollowUp20241111-RolloutV4
+12/25/2024|Email|Open|Other|CUEmailCombinedFollowUp20241111-RolloutV4
+12/25/2024|Email|Open|Other|CUEmailCombinedFollowUp20241111-RolloutV4
+1/16/2025|Email|Send|AUTO|24-12 - AAH LM C1 - Initial - Base - CUEmailAuto-LM
+1/16/2025|Email|Open|AUTO|24-12 - AAH LM C1 - Initial - Base - CUEmailAuto-LM
+1/22/2025|Email|Send|Other|25-01 - LIF COMB C1 - Initial - Base
+1/22/2025|Email|Open|Other|25-01 - LIF COMB C1 - Initial - Base
+2/6/2025|Email|Send|AUTO|24-12 - AAH LM C1 - Send 2 - Base - CUEmailAuto-LM
+2/6/2025|Email|Open|AUTO|24-12 - AAH LM C1 - Send 2 - Base - CUEmailAuto-LM
+2/12/2025|Email|Send|Other|25-01 - LIF COMB C1 - Send 2 - Base
+2/12/2025|Email|Open|Other|25-01 - LIF COMB C1 - Send 2 - Base
+4/23/2025|Email|Send|Other|25-04 - LIF COMB C2 - Initial - Base
+4/23/2025|Email|Open|Other|25-04 - LIF COMB C2 - Initial - Base
+5/14/2025|Email|Send|Other|25-04 - LIF COMB C2 - Send 2 - Base
+5/14/2025|Email|Open|Other|25-04 - LIF COMB C2 - Send 2 - Base
+5/22/2025|Email|Send|AUTO|25-03 - AAH LM C2 - Initial - Base
+5/22/2025|Email|Open|AUTO|25-03 - AAH LM C2 - Initial - Base
+6/12/2025|Email|Send|AUTO|25-03 - AAH LM C2 - Send 2 - Base
+6/12/2025|Email|Open|AUTO|25-03 - AAH LM C2 - Send 2 - Base
+7/17/2025|Email|Send|AUTO|25-06 - AAH LM D3 - Initial - Base
+7/17/2025|Email|Open|AUTO|25-06 - AAH LM D3 - Initial - Base
+7/23/2025|Email|Send|Other|25-07 - LIF COMB D3 - Initial - Base
+7/23/2025|Email|Open|Other|25-07 - LIF COMB D3 - Initial - Base
+8/7/2025|Email|Send|AUTO|25-06 - AAH LM D3 - Send 2 - Base
+8/7/2025|Email|Open|AUTO|25-06 - AAH LM D3 - Send 2 - Base
+8/13/2025|Email|Send|Other|25-07 - LIF COMB D3 - Send 2 - Base
+9/11/2025|Direct Mail|Direct Mail Initial Mailing|Term Life|SILP
+9/25/2025|Direct Mail|Direct Mail Followup Mailing|Term Life|SILP
+10/1/2025|Application|Application Received|Term Life|2016 SITERM80
+10/1/2025|Email|Send|Other|LifeAppReceived-v5
+10/1/2025|Email|Open|Other|LifeAppReceived-v5
+10/1/2025|Email|Open|Other|LifeAppReceived-v5
+10/2/2025|Application|Policy Issued|Term Life|2016 SITERM80
+10/2/2025|Email|Send|Other|LifePolicyIssued-v16
+10/2/2025|Email|Open|Other|LifePolicyIssued-v16
+10/2/2025|Email|Open|Other|LifePolicyIssued-v16
+10/4/2025|Email|Send|Other|DirectBill-V9
+10/4/2025|Email|Open|Other|DirectBill-V9
+10/4/2025|Email|Send|Other|Applicant Upgrade (AU) - initial
+10/4/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/4/2025|Email|Open|Other|DirectBill-V9
+10/4/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/15/2025|Email|Send|Other|25-10 - LIF COMB D4 - Initial - Base
+10/15/2025|Email|Send|Other|LifeProLifePaymentDueSoon-V2
+10/15/2025|Email|Open|Other|LifeProLifePaymentDueSoon-V2
+10/15/2025|Email|Open|Other|LifeProLifePaymentDueSoon-V2
+10/15/2025|Email|Click|Other|LifeProLifePaymentDueSoon-V2
+10/15/2025|Email|Open|Other|DirectBill-V9
+10/15/2025|Email|Open|Other|LifeAppReceived-v5
+10/15/2025|Email|Open|Other|DirectBill-V9
+10/15/2025|Email|Open|Other|LifeAppReceived-v5
+10/15/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/15/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/15/2025|Email|Open|Other|LifePolicyIssued-v16
+10/15/2025|Email|Click|Other|LifeProLifePaymentDueSoon-V2
+10/15/2025|Email|Open|Other|25-10 - LIF COMB D4 - Initial - Base
+10/15/2025|Email|Open|Other|25-10 - LIF COMB D4 - Initial - Base
+10/15/2025|Email|Open|Other|LifeAppReceived-v5
+10/15/2025|Email|Open|Other|LifeAppReceived-v5
+10/15/2025|Email|Open|Other|DirectBill-V9
+10/15/2025|Email|Open|Other|LifeProLifePaymentDueSoon-V2
+10/15/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/15/2025|Email|Open|Other|DirectBill-V9
+10/15/2025|Email|Open|Other|25-10 - LIF COMB D4 - Initial - Base
+10/15/2025|Email|Open|Other|LifePolicyIssued-v16
+10/16/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/16/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/20/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/20/2025|Email|Open|Other|Applicant Upgrade (AU) - initial
+10/23/2025|Email|Send|AUTO|25-09 - AAH LM D4 - Initial - Base
+10/23/2025|Email|Open|AUTO|25-09 - AAH LM D4 - Initial - Base
+10/28/2025|Email|Send|Other|Lead Nurture - Non-Buy - initial
+10/28/2025|Email|Open|Other|Lead Nurture - Non-Buy - initial
+10/28/2025|Email|Open|Other|Lead Nurture - Non-Buy - initial
+11/4/2025|Email|Send|Other|Lead Nurture - Non-Buy - followup 1
+11/4/2025|Email|Open|Other|Lead Nurture - Non-Buy - followup 1
+11/5/2025|Email|Send|Other|25-10 - LIF COMB D4 - Send 2 - Base
+11/5/2025|Email|Open|Other|25-10 - LIF COMB D4 - Send 2 - Base
+11/9/2025|Email|Send|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Open|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Send|Other|AccountCreation-V5
+11/9/2025|Email|Open|Other|AccountCreation-V5
+11/9/2025|Email|Open|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Open|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Open|Other|AccountCreation-V5
+11/9/2025|Email|Open|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Open|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Click|Other|GuestPayConfirmation-V9
+11/9/2025|Email|Click|Other|GuestPayConfirmation-V9
+11/10/2025|Email|Send|Other|Lead Nurture - Non-Buy - followup 2
+11/10/2025|Email|Open|Other|Lead Nurture - Non-Buy - followup 2
+11/10/2025|Email|Open|Other|Lead Nurture - Non-Buy - followup 2
+11/10/2025|Email|Open|Other|Lead Nurture - Non-Buy - followup 2
+11/10/2025|Email|Open|Other|GuestPayConfirmation-V9
+11/13/2025|Email|Send|AUTO|25-09 - AAH LM D4 - Send 2 - Base
+11/13/2025|Email|Open|AUTO|25-09 - AAH LM D4 - Send 2 - Base
+12/8/2025|Email|Send|Other|PaymentSetup-V5
+12/8/2025|Email|Open|Other|PaymentSetup-V5
+12/8/2025|Email|Open|Other|PaymentSetup-V5
+12/8/2025|Email|Open|Other|PaymentSetup-V5
+12/8/2025|Email|Open|Other|LifeProLifePaymentDueSoon-V2
+12/8/2025|Email|Click|Other|LifeProLifePaymentDueSoon-V2
+12/8/2025|Email|Send|Other|GuestPayConfirmation-V9
+12/8/2025|Email|Open|Other|GuestPayConfirmation-V9
+12/8/2025|Email|Open|Other|GuestPayConfirmation-V9
+12/8/2025|Email|Open|Other|GuestPayConfirmation-V9
+12/8/2025|Email|Open|Other|GuestPayConfirmation-V9
+12/8/2025|Email|Open|Other|LifePolicyIssued-v16
+12/8/2025|Email|Open|Other|LifeAppReceived-v5
+12/8/2025|Email|Send|Other|SFORCEServiceCorrEmail-v4
+12/8/2025|Email|Open|Other|SFORCEServiceCorrEmail-v4
+12/8/2025|Email|Send|Other|SFORCEServiceCorrEmail-v4
+12/8/2025|Email|Open|Other|SFORCEServiceCorrEmail-v4
+12/8/2025|Email|Open|Other|SFORCEServiceCorrEmail-v4
+1/7/2026|Email|Send|Whole Life|26-01 - LIF SIWL D1 - Initial - Base
+1/7/2026|Email|Open|Whole Life|26-01 - LIF SIWL D1 - Initial - Base
+1/28/2026|Email|Send|Whole Life|26-01 - LIF SIWL D1 - Send 2 - Base
+1/28/2026|Email|Open|Whole Life|26-01 - LIF SIWL D1 - Send 2 - Base
+2/9/2026|Email|Send|Other|TRG - DS-GuestPay-Confirmation
+2/9/2026|Email|Open|Other|TRG - DS-GuestPay-Confirmation
+2/9/2026|Email|Open|Other|TRG - DS-GuestPay-Confirmation
+2/12/2026|Email|Send|AUTO|26-01 - AAH LM D1 - Initial - Base
+2/12/2026|Email|Open|AUTO|26-01 - AAH LM D1 - Initial - Base
+3/5/2026|Email|Send|AUTO|26-01 - AAH LM D1 - Send 2 - T1
+3/5/2026|Email|Open|AUTO|26-01 - AAH LM D1 - Send 2 - T1
+4/22/2026|Email|Send|Whole Life|26-04 - LIF SIWL D2 - Initial - Base
+4/22/2026|Email|Open|Whole Life|26-04 - LIF SIWL D2 - Initial - Base
+4/23/2026|Email|Send|AUTO|26-03 - AAH LM D2 - Initial - Base
+4/23/2026|Email|Open|AUTO|26-03 - AAH LM D2 - Initial - Base
+4/24/2026|Email|Send|Other|Policy Anniversary - 6 Month
+4/24/2026|Email|Open|Other|Policy Anniversary - 6 Month
+5/14/2026|Email|Send|AUTO|26-03 - AAH LM D2 - Send 2 - Base
+5/14/2026|Email|Open|AUTO|26-03 - AAH LM D2 - Send 2 - Base
+5/17/2026|Email|Send|Whole Life|26-04 - LIF SIWL D2 - Send 2 - Base
+5/17/2026|Email|Open|Whole Life|26-04 - LIF SIWL D2 - Send 2 - Base
+7/8/2026|Email|Send|Whole Life|26-07 - LIF SIWL D3 - Initial - Base
+7/8/2026|Email|Open|Whole Life|26-07 - LIF SIWL D3 - Initial - Base
+7/21/2026|Direct Mail|Direct Mail Initial Mailing|Auto|AUTC
+`.trim().split('\n').map(line => {
+  const [d, channel, desc, ptype, name] = line.split('|');
+  const [m, dd, y] = d.split('/').map(Number);
+  return { date: new Date(Date.UTC(y, m - 1, dd)), channel, desc, ptype, name };
+});
+
+const ICONS = {
+  envelope: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  envelopeOpen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9"/><path d="m3 10 9-7 9 7"/><path d="m3 10 9 6 9-6"/></svg>',
+  click: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 4 7 17 2.5-7.5L21 11z"/><path d="m14 14 6 6"/></svg>',
+  mailbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5C2 7 4 5 6.5 5H18c2.2 0 4 1.8 4 4z"/><path d="M15 9h3v3"/><path d="M6.5 5C9 5 11 7 11 9.5V19"/><path d="M6 10h1"/></svg>',
+  appDoc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>'
+};
+
+const LANES = [
+  { id: 'dm',      label: 'Direct Mail',              sub: 'Printed mailings',                color: 'var(--dm)' },
+  { id: 'app',     label: 'Application / Policy',     sub: 'Conversion milestones',           color: 'var(--app)' },
+  { id: 'life',    label: 'Email · Life marketing',   sub: 'Combined, SIT, SIWL',             color: 'var(--life)' },
+  { id: 'auto',    label: 'Email · Auto marketing',   sub: 'Auto / AAH LM',                   color: 'var(--auto)' },
+  { id: 'nurture', label: 'Email · Lead nurture',     sub: 'Non-buy follow-ups',              color: 'var(--nurture)' },
+  { id: 'service', label: 'Email · Onboarding & service', sub: 'Transactional / policy service', color: 'var(--service)' }
+];
+const laneById = Object.fromEntries(LANES.map(l => [l.id, l]));
+
+function laneOf(r) {
+  if (r.channel === 'Direct Mail') return 'dm';
+  if (r.channel === 'Application') return 'app';
+  if (/^Lead Nurture/.test(r.name)) return 'nurture';
+  if (/CUEmailAuto|AAH LM/.test(r.name)) return 'auto';
+  if (/^CUEmail|LIF COMB|LIF SIWL/.test(r.name)) return 'life';
+  return 'service';
+}
+
+// TODO: stakeholder review – phase boundaries are analyst interpretation, not source data.
+const PHASES = [
+  { from: '2024-02-01', to: '2025-09-10', label: 'Prospect marketing (email only)', color: '#dbeafe' },
+  { from: '2025-09-11', to: '2025-10-02', label: 'Conversion', color: '#dcfce7' },
+  { from: '2025-10-03', to: '2025-12-31', label: 'Onboarding & servicing', color: '#ccfbf1' },
+  { from: '2026-01-01', to: '2026-07-31', label: 'Cross-sell (Whole Life, Auto)', color: '#fef3c7' }
+];
+
+const DAY = 86400000;
+const fmt = d => d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+const utc = s => new Date(s + 'T00:00:00Z');
+
+// Group events: one node per (date, lane, campaign)
+const groups = [];
+const gIndex = new Map();
+RAW.forEach(r => {
+  const lane = laneOf(r);
+  const key = r.date.getTime() + '|' + lane + '|' + r.name + '|' + (r.channel === 'Email' ? '' : r.desc);
+  let g = gIndex.get(key);
+  if (!g) {
+    g = { date: r.date, lane, name: r.name, channel: r.channel, ptype: r.ptype, desc: r.desc, events: [], send: 0, open: 0, click: 0 };
+    gIndex.set(key, g); groups.push(g);
+  }
+  g.events.push(r);
+  if (r.desc === 'Send') g.send++; else if (r.desc === 'Open') g.open++; else if (r.desc === 'Click') g.click++;
+});
+groups.forEach((g, i) => {
+  g.id = i;
+  if (g.channel === 'Direct Mail') { g.icon = 'mailbox'; g.kind = 'big'; }
+  else if (g.channel === 'Application') { g.icon = g.desc === 'Policy Issued' ? 'shield' : 'appDoc'; g.kind = 'big'; }
+  else if (g.click) { g.icon = 'click'; g.kind = 'click'; }
+  else if (g.open) { g.icon = 'envelopeOpen'; g.kind = 'open'; }
+  else { g.icon = 'envelope'; g.kind = 'send'; }
+});
+
+const start = utc('2024-02-01'), end = utc('2026-08-15');
+const totalDays = (end - start) / DAY;
+const visible = new Set(LANES.map(l => l.id));
+let pxPerDay = 1.6, selectedId = null;
+const PAD = 24, NODE_GAP = 34, ROW_H = 40;
+
+const $ = id => document.getElementById(id);
+
+function renderKpis() {
+  const c = d => RAW.filter(r => r.desc === d).length;
+  const first = RAW[0].date;
+  const dm = RAW.find(r => r.channel === 'Direct Mail').date;
+  const app = RAW.find(r => r.desc === 'Application Received').date;
+  const issued = RAW.find(r => r.desc === 'Policy Issued').date;
+  const preAppSends = RAW.filter(r => r.desc === 'Send' && r.date < app).length;
+  const k = [
+    [RAW.length, 'Total interactions'],
+    [c('Send'), 'Emails sent'],
+    [c('Open'), 'Email opens'],
+    [c('Click'), 'Email clicks'],
+    [RAW.filter(r => r.channel === 'Direct Mail').length, 'Direct mail pieces'],
+    [preAppSends, 'Emails sent before application'],
+    [Math.round((app - first) / DAY) + ' days', 'First touch to application'],
+    [Math.round((app - dm) / DAY) + ' days', 'First mail piece to application'],
+    [Math.round((issued - app) / DAY) + ' day', 'Application to policy issued']
+  ];
+  $('kpis').innerHTML = k.map(([v, l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function renderFilters() {
+  $('laneFilters').innerHTML = LANES.map(l =>
+    `<label><input type="checkbox" data-lane="${l.id}" checked><span class="swatch" style="background:${l.color}"></span>${l.label}</label>`).join('');
+  $('laneFilters').addEventListener('change', e => {
+    const id = e.target.dataset.lane; if (!id) return;
+    e.target.checked ? visible.add(id) : visible.delete(id);
+    render();
+  });
+  const li = (ic, t) => `<span>${ICONS[ic]}${t}</span>`;
+  $('legendIcons').innerHTML = [li('envelope', 'Email sent, not opened'), li('envelopeOpen', 'Email opened'), li('click', 'Email clicked'),
+    li('mailbox', 'Direct mail'), li('appDoc', 'Application received'), li('shield', 'Policy issued')].join('');
+}
+
+function xOf(d) { return PAD + ((d - start) / DAY) * pxPerDay; }
+
+function render() {
+  const width = PAD * 2 + totalDays * pxPerDay;
+  const canvas = $('canvas');
+  canvas.style.width = width + 'px';
+  let html = '<div class="axis">';
+  PHASES.forEach(p => {
+    const x1 = xOf(utc(p.from)), x2 = xOf(utc(p.to)) + pxPerDay;
+    html += `<div class="phase" style="left:${x1}px;width:${x2 - x1}px;background:${p.color}" title="${p.label}">${p.label}</div>`;
+  });
+  const ticks = [];
+  for (let y = 2024, m = 1; ; m++) {
+    if (m > 11) { m = 0; y++; }
+    const d = new Date(Date.UTC(y, m, 1)); if (d > end) break;
+    ticks.push(d);
+  }
+  const monthStep = pxPerDay * 30 < 28 ? 3 : 1;
+  ticks.forEach(d => {
+    const isYr = d.getUTCMonth() === 0;
+    if (!isYr && d.getUTCMonth() % monthStep) return;
+    const lbl = isYr ? d.getUTCFullYear() : d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short' });
+    html += `<div class="tick${isYr ? ' yr' : ''}" style="left:${xOf(d)}px">${lbl}</div>`;
+  });
+  html += '</div>';
+
+  // Milestones
+  const ms = groups.filter(g => g.lane === 'app' || (g.lane === 'dm' && g.desc.includes('Initial')));
+  let lanesHtml = '', labelsHtml = '<div class="axis-sp"></div>';
+  LANES.filter(l => visible.has(l.id)).forEach(l => {
+    const items = groups.filter(g => g.lane === l.id).sort((a, b) => a.date - b.date);
+    const rows = [];
+    items.forEach(g => {
+      const x = xOf(g.date);
+      let r = rows.findIndex(last => x - last >= NODE_GAP);
+      if (r === -1) { r = rows.length; rows.push(x); } else rows[r] = x;
+      g._x = x; g._row = r;
+    });
+    const h = Math.max(rows.length, 1) * ROW_H + 16;
+    labelsHtml += `<div class="lane-l" style="height:${h}px"><span class="swatch" style="background:${l.color}"></span><div>${l.label}<small>${l.sub}</small></div></div>`;
+    lanesHtml += `<div class="lane" style="height:${h}px">`;
+    ticks.forEach(d => { lanesHtml += `<div class="grid-line" style="left:${xOf(d)}px"></div>`; });
+    items.forEach(g => {
+      const label = `${fmt(g.date)} – ${g.channel === 'Email' ? g.name : g.desc + ' (' + g.name + ')'}`;
+      const badges = g.channel === 'Email'
+        ? (g.open ? `<span class="badge">${g.open}</span>` : '') + (g.click ? `<span class="badge clk">${g.click}</span>` : '') : '';
+      lanesHtml += `<button type="button" class="node ${g.kind}${selectedId === g.id ? ' sel' : ''}" data-id="${g.id}"
+        style="left:${g._x}px;top:${8 + g._row * ROW_H + (g.kind === 'big' ? 0 : 4)}px;color:${l.color}" aria-label="${label.replace(/"/g, '&quot;')}">${ICONS[g.icon]}${badges}</button>`;
+    });
+    lanesHtml += '</div>';
+  });
+  ms.forEach(g => {
+    const cls = g.lane === 'dm' ? ' dm' : '';
+    html += `<div class="milestone${cls}" style="left:${xOf(g.date)}px"></div>`;
+  });
+  canvas.innerHTML = html + lanesHtml;
+  // Milestone flags in the axis
+  const axis = canvas.querySelector('.axis');
+  let lastFlagX = -1e9, flagRow = 0;
+  ms.forEach(g => {
+    const x = xOf(g.date);
+    flagRow = x - lastFlagX < 44 ? flagRow + 1 : 0; lastFlagX = x;
+    const f = document.createElement('div');
+    f.className = 'ms-flag' + (g.lane === 'dm' ? ' dm' : '');
+    f.style.left = x + 'px'; f.style.top = (24 + flagRow * 14) + 'px';
+    f.textContent = g.lane === 'dm' ? 'Mail' : g.desc === 'Policy Issued' ? 'Issued' : 'App';
+    axis.appendChild(f);
+  });
+  $('labels').innerHTML = labelsHtml;
+}
+
+function showDetail(g) {
+  const lane = laneById[g.lane];
+  const rows = g.events.map(e => `<tr><td>${fmt(e.date)}</td><td>${e.channel}</td><td>${e.desc}</td><td>${e.ptype}</td></tr>`).join('');
+  const sameCampaign = groups.filter(x => x.name === g.name && x.channel === g.channel).sort((a, b) => a.date - b.date);
+  const history = g.channel === 'Email' && sameCampaign.length > 1
+    ? `<p style="font-size:12px;color:var(--muted);margin:10px 0 4px">This campaign shows up on ${sameCampaign.length} days: ${sameCampaign.map(x => fmt(x.date)).join(', ')}</p>` : '';
+  $('detail').className = '';
+  $('detail').innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+      <span style="color:${lane.color};width:22px;height:22px;display:inline-block">${ICONS[g.icon]}</span>
+      <div><div style="font-weight:600">${g.channel === 'Email' ? g.name : g.desc}</div>
+      <div style="font-size:12px;color:var(--muted)">${fmt(g.date)} · ${lane.label} · Product: ${g.ptype}${g.channel !== 'Email' ? ' · ' + g.name : ''}</div></div>
+    </div>
+    ${g.channel === 'Email' ? `<div style="font-size:13px;margin-bottom:8px">Sends: <b>${g.send}</b> · Opens: <b>${g.open}</b> · Clicks: <b>${g.click}</b></div>` : ''}
+    <table><thead><tr><th>Date</th><th>Channel</th><th>Interaction</th><th>Product type</th></tr></thead><tbody>${rows}</tbody></table>
+    ${history}`;
+}
+
+function renderObservations() {
+  const app = RAW.find(r => r.desc === 'Application Received').date;
+  const issued = RAW.find(r => r.desc === 'Policy Issued').date;
+  const pre = RAW.filter(r => r.date < app);
+  const preEmailCampaigns = new Set(pre.filter(r => r.channel === 'Email').map(r => r.name)).size;
+  const nurtureAfter = groups.filter(g => g.lane === 'nurture' && g.date > issued);
+  const lifeAcqAfter = groups.filter(g => g.lane === 'life' && /LIF COMB/.test(g.name) && g.date > issued);
+  const clicks = RAW.filter(r => r.desc === 'Click');
+  const clickLanes = new Set(clicks.map(laneOf));
+  const items = [
+    `<b>Long email-only lead-up:</b> ${preEmailCampaigns} different email campaigns between ${fmt(RAW[0].date)} and ${fmt(app)}. The person opened most of them but never clicked.`,
+    `<b>Direct mail came right before conversion:</b> the first SILP Term Life mailing went out ${Math.round((app - RAW.find(r => r.channel === 'Direct Mail').date) / DAY)} days before the application. The follow-up mailing went out 6 days before it.`,
+    `<b>Fast issue:</b> the application was received ${fmt(app)} and the policy (2016 SITERM80) was issued the next day.`,
+    nurtureAfter.length ? `<b>Possible suppression gap:</b> ${nurtureAfter.length} "Lead Nurture – Non-Buy" emails went out <i>after</i> the policy was issued (${nurtureAfter.map(g => fmt(g.date)).join(', ')}). Worth checking with the campaign team.` : '',
+    lifeAcqAfter.length ? `<b>Life prospecting continued after the purchase:</b> ${lifeAcqAfter.map(g => g.name).join('; ')}. Check whether this is intended cross-sell or a suppression issue.` : '',
+    `<b>Clicks only came from ${[...clickLanes].map(l => laneById[l].label.replace('Email · ', '')).join(', ')} emails</b> (payment due, guest pay). This suggests action-oriented servicing emails get the most engagement after purchase.`,
+    `<b>2026 cross-sell:</b> Whole Life (SIWL) and Auto (AAH LM) email series, followed by an Auto direct mail piece on ${fmt(RAW[RAW.length - 1].date)}.`
+  ];
+  $('obs').innerHTML = items.filter(Boolean).map(t => `<li>${t}</li>`).join('');
+}
+
+// Interactions
+const tip = $('tip');
+$('canvas').addEventListener('click', e => {
+  const b = e.target.closest('.node'); if (!b) return;
+  selectedId = +b.dataset.id;
+  document.querySelectorAll('.node.sel').forEach(n => n.classList.remove('sel'));
+  b.classList.add('sel');
+  showDetail(groups[selectedId]);
+});
+function showTip(b, x, y) {
+  const g = groups[+b.dataset.id];
+  tip.innerHTML = `<b>${fmt(g.date)}</b><br>${g.channel === 'Email' ? g.name : g.desc + ' – ' + g.name}<br>` +
+    (g.channel === 'Email' ? `Sends ${g.send} · Opens ${g.open} · Clicks ${g.click}` : `Product: ${g.ptype}`);
+  tip.style.display = 'block';
+  tip.style.left = Math.min(x + 14, innerWidth - 330) + 'px';
+  tip.style.top = (y + 14) + 'px';
+}
+$('canvas').addEventListener('mousemove', e => { const b = e.target.closest('.node'); b ? showTip(b, e.clientX, e.clientY) : (tip.style.display = 'none'); });
+$('canvas').addEventListener('mouseleave', () => tip.style.display = 'none');
+$('canvas').addEventListener('focusin', e => { const b = e.target.closest('.node'); if (b) { const r = b.getBoundingClientRect(); showTip(b, r.right, r.bottom); } });
+$('canvas').addEventListener('focusout', () => tip.style.display = 'none');
+
+$('zoom').addEventListener('input', e => { pxPerDay = +e.target.value; render(); });
+$('fitBtn').addEventListener('click', () => {
+  pxPerDay = Math.max(0.5, ($('scroll').clientWidth - PAD * 2) / totalDays);
+  $('zoom').value = pxPerDay; render(); $('scroll').scrollLeft = 0;
+});
+$('focusBtn').addEventListener('click', () => {
+  const s = utc('2025-09-01'), e = utc('2025-12-31');
+  pxPerDay = Math.min(8, ($('scroll').clientWidth - PAD * 2) / ((e - s) / DAY));
+  $('zoom').value = pxPerDay; render();
+  $('scroll').scrollLeft = xOf(s) - PAD;
+});
+
+renderKpis(); renderFilters(); renderObservations(); render();
+</script>
+</body>
+</html>
