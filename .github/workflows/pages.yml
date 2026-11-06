@@ -27,7 +27,14 @@ jobs:
       - name: Prepare site
         run: |
           mkdir _site
-          cp "Marketing Performance Dashboard.html" _site/index.html
+          cp -r "Multi-Page Version" "Retention Report - Standalone" _site/
+          cp "Marketing Performance Dashboard.html" _site/
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta http-equiv="refresh" content="0; url=Multi-Page%20Version/Marketing%20Performance%20-%20Launch.html">
+          <a href="Multi-Page%20Version/Marketing%20Performance%20-%20Launch.html">Open the demo</a>
+          EOF
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
